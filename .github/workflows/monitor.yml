@@ -1,0 +1,45 @@
+name: DevJobs Monitor - Daily Scan
+
+on:
+  schedule:
+    # Spustí se každý den v 8:00 CET (7:00 UTC)
+    - cron: '0 7 * * *'
+  workflow_dispatch:  # Možnost manuálního spuštění
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4 lxml
+      
+      - name: Run job scanner
+        run: |
+          python career_scan.py
+      
+      - name: Commit and push results
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add found_jobs.json found_jobs.txt
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update job listings - $(date +'%Y-%m-%d %H:%M')"
+          git push
+      
+      - name: Send email notification (optional)
+        if: ${{ secrets.EMAIL_TO != '' }}
+        env:
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+        run: |
+          python send_email.py
